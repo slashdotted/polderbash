@@ -1,0 +1,343 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+# ======================================================================
+# Load configuration
+# ======================================================================
+source ./lib/config
+
+# ======================================================================
+# Gameboard definition
+# ======================================================================
+declare -A gameboard
+columns=15
+rows=15
+player_x=0
+player_y=0
+player_direction=1
+player_persona=0
+player_say=""
+player_score=0
+play_time=0
+game_state=0
+start_time=$(date +%s)
+
+# ======================================================================
+# Gameboard initialization
+# ======================================================================
+function gameboard_init {
+	for ((i=0;i<rows;i++)) do
+		for ((j=0;j<columns;j++)) do
+			gameboard[$i,$j]="n"
+		done
+	done
+	touch $GAMESTATEFILE
+}
+
+# ======================================================================
+# Gameboard cleanup
+# ======================================================================
+function gameboard_destroy {
+	rm -f $GAMESTATEFILE
+	rm -f $GAMESTATEFILELOCK
+	rm -f $PLAYERLOOKFILE
+	rm -f $PLAYERINFOFILE
+	rm -f $PLAYERPERSONAFILE
+	rm -f $SAVEGAMEFILE
+}
+
+# ======================================================================
+# Get cell object (row,column)
+# ======================================================================
+function gameboard_get_cell {
+	echo ${gameboard[$1,$2]}
+}
+
+# ======================================================================
+# Creates a new cell object (type)
+# ======================================================================
+function cell_new {
+	echo $1
+}
+
+# ======================================================================
+# Set cell object (row,column,cell)
+# ======================================================================
+function gameboard_set_cell {
+	gameboard[$1,$2]=$3
+}
+
+# ======================================================================
+# Get cell type (cell)
+# ======================================================================
+function cell_get_type {
+	echo $1
+}
+
+# ======================================================================
+# Set cell type (cell,type)
+# ======================================================================
+function cell_set_type {
+	cell_new $2
+}
+
+# ======================================================================
+# Check the move (row,column)
+# ======================================================================
+function gameboard_move {
+	local nextcell=$(gameboard_get_cell $1 $2)
+	local type=$(cell_get_type $nextcell)
+	local test_code=$(eval "echo $(echo \$cell_test_$1_$2)")
+	local init_code=$(eval "echo $(echo \$cell_init_$1_$2)")
+	local cleanup_code=$(eval "echo $(echo \$cell_cleanup_$1_$2)")
+	if [ "$type" = "c" ]; then
+		# Door closed, perform test 
+		eval "$(echo $init_code)"
+		if eval "$(echo $test_code)"; then
+			eval "$(echo $cleanup_code)"
+			nextcell=$(cell_set_type $nextcell "o")
+			gameboard_set_cell $1 $2 $nextcell
+			player_score=$(expr $player_score + 5)
+			player_x=$2
+			player_y=$1
+			return 0;
+		else
+			return 1
+		fi
+	elif [ "$type" = "w" ]; then
+		return 1
+	elif [ "$type" = "s" ]; then
+		player_score=$(expr $player_score + 1)
+		nextcell=$(cell_set_type $nextcell "f")
+		gameboard_set_cell $1 $2 $nextcell
+		player_x=$2
+		player_y=$1
+		return 0
+	elif [ "$type" = "e" ]; then
+		player_x=$2
+		player_y=$1
+		game_state=1		
+	else
+		# Normal passage
+		player_x=$2
+		player_y=$1
+		current_message=""
+		return 0;
+	fi
+}
+
+# ======================================================================
+# Move player forward
+# ======================================================================
+function player_forward {
+	if [ $game_state -eq 0 ]; then
+		case $player_direction in
+			0) # move up
+				if [ $player_y -gt 0 ]; then
+					new_y=$(expr $player_y - 1)
+					gameboard_move $new_y $player_x
+				fi
+			;;
+			1) # move right
+				if [ $player_x -lt $(expr $columns - 1) ]; then
+					new_x=$(expr $player_x + 1)
+					gameboard_move $player_y $new_x
+				fi
+			;;
+			2) # move down
+				if [ $player_y -lt $(expr $rows - 1) ]; then
+					new_y=$(expr $player_y + 1) 
+					gameboard_move $new_y $player_x
+				fi
+			;;
+			3) # move left
+				if [ $player_x -gt 0 ]; then
+					new_x=$(expr $player_x - 1)
+					gameboard_move $player_y $new_x
+				fi
+			;;
+		esac
+	fi
+	player_say=""
+}
+
+# ======================================================================
+# Turn player anticlockwise
+# ======================================================================
+function player_anticlockwise {
+	if [ $game_state -eq 0 ]; then
+		player_direction=$(expr \( \( $player_direction - 1 \) + 4 \) % 4)
+		player_say=""
+	fi
+}
+
+# ======================================================================
+# Turn player clockwise
+# ======================================================================
+function player_clockwise {
+	if [ $game_state -eq 0 ]; then
+		player_direction=$(expr \( \( $player_direction + 1 \) + 4 \) % 4)
+		player_say=""
+	fi
+}
+
+# ======================================================================
+# Get what's in front
+# ======================================================================
+function player_look {
+	local tmpfile=$(mktemp)
+	case $player_direction in
+		0) # move up
+			if [ $player_y -gt 0 ]; then
+				new_y=$(expr $player_y - 1)
+				tcell=$(gameboard_get_cell $new_y $player_x)
+				cell_get_type $tcell > $tmpfile
+			else
+				echo "b" > $tmpfile
+			fi
+		;;
+		1) # move right
+			if [ $player_x -lt $(expr $columns - 1) ]; then
+				new_x=$(expr $player_x + 1)
+				tcell=$(gameboard_get_cell $player_y $new_x)
+				cell_get_type $tcell > $tmpfile
+			else
+				echo "b" > $tmpfile
+			fi
+		;;
+		2) # move down
+			if [ $player_y -lt $(expr $rows - 1) ]; then
+				new_y=$(expr $player_y + 1) 
+				tcell=$(gameboard_get_cell $new_y $player_x)
+				cell_get_type $tcell > $tmpfile
+			else
+				echo "b" > $tmpfile
+			fi
+		;;
+		3) # move left
+			if [ $player_x -gt 0 ]; then
+				new_x=$(expr $player_x - 1)
+				tcell=$(gameboard_get_cell $player_y $new_x)
+				cell_get_type $tcell > $tmpfile
+			else
+				echo "b" > $tmpfile
+			fi
+		;;
+	esac
+	mv $tmpfile $PLAYERLOOKFILE
+	rm -f $tmpfile
+}
+
+# ======================================================================
+# Get player position
+# ======================================================================
+function player_info {
+	local tmpfile=$(mktemp)
+	echo "$player_y,$player_x,$player_direction,$player_persona,$player_score,$play_time,$game_state,$player_say" > $tmpfile
+	mv $tmpfile $PLAYERINFOFILE
+	rm -f $tmpfile
+}
+
+# ======================================================================
+# Get player position
+# ======================================================================
+function player_update_persona {
+	if [ -f $PLAYERPERSONAFILE ]; then
+		player_persona=$(cat $PLAYERPERSONAFILE)
+		rm -f $PLAYERPERSONAFILE
+	fi
+}
+
+# ======================================================================
+# Get gameboard representation
+# ======================================================================
+function gameboard_get_serialized {
+	if [ $game_state -eq 0 ]; then
+		play_time=$(expr $(date +%s) - $start_time)
+	fi
+	data="$player_y#$player_x#$player_direction#$player_persona#$play_time#$player_score#$game_state#$player_say"
+	for ((i=0;i<rows;i++)) do
+		for ((j=0;j<columns;j++)) do
+			data="$data#$(cell_get_type ${gameboard[$i,$j]})"
+		done
+	done
+	echo $data
+}
+
+# ======================================================================
+# Read gameboard representation (serialized string)
+# ======================================================================
+function gameboard_read_serialized {
+	if [ "$1" != "" ]; then
+		player_y=$(echo $1 | cut -d'#' -f1)
+		player_x=$(echo $1 | cut -d'#' -f2)
+		player_direction=$(echo $1 | cut -d'#' -f3)
+		player_persona=$(echo $1 | cut -d'#' -f4)
+		play_time=$(echo $1 | cut -d'#' -f5)
+		player_score=$(echo $1 | cut -d'#' -f6)
+		game_state=$(echo $1 | cut -d'#' -f7)
+		player_say=$(echo $1 | cut -d'#' -f8)
+		start_time=$(expr $(date +%s) - $play_time)
+		index=9
+		for ((i=0;i<rows;i++)) do
+			for ((j=0;j<columns;j++)) do
+				gameboard[$i,$j]=$(echo $1 | cut -d'#' -f$index)
+				let index=index+1
+			done
+		done
+	fi
+}
+
+# ======================================================================
+# Save game
+# ======================================================================
+function player_save_game {
+	local tmpfile=$(mktemp)
+	gameboard_get_serialized > $tmpfile
+	mv $tmpfile $SAVEGAMEFILE
+	rm -f $tmpfile
+}
+
+# ======================================================================
+# Load game
+# ======================================================================
+function player_load_game {
+	if [ -f $SAVEGAMEFILE ]; then
+		gameboard_read_serialized "$(cat $SAVEGAMEFILE)"
+		rm -f $SAVEGAMEFILE
+		sync
+	fi
+}
+
+# ======================================================================
+# Player say
+# ======================================================================
+function player_say {
+	if [ -f $PLAYERSAYFILE ]; then
+		player_say="$(cat $PLAYERSAYFILE | tr '#' ';')"
+		rm -f $PLAYERSAYFILE
+		sync
+	fi
+}
+
+# ======================================================================
+# Return player say
+# ======================================================================
+function get_player_say {
+	echo $player_say
+}

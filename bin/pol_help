@@ -1,0 +1,30 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+echo "Available commands:"
+echo "pol_help : this command :)"
+echo "pol_forward : move forward one cell in the current direction"
+echo "pol_clockwise : turn clockwise"
+echo "pol_anticlockwise : turn anticlockwise"
+echo "pol_persona : change your avatar"
+echo "pol_say : say something (for example, answer a question)"
+echo "pol_look : get what's in front of you"
+echo "pol_info : get some information about your game"
+echo "pol_savegame : get the current game state"
+echo "pol_loadgame : restore a previous game state"
+

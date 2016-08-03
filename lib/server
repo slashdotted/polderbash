@@ -1,0 +1,182 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+# ======================================================================
+# Load configuration
+# ======================================================================
+source ./lib/config
+source ./lib/utils
+
+# ======================================================================
+# Send ok
+# ======================================================================
+function server_send_ok {
+	cat  <<-EOF
+	HTTP/1.1 200 OK
+	Cache-Control: public
+	Connection: close
+	
+EOF
+}
+
+# ======================================================================
+# Send missing file error
+# ======================================================================
+function server_send_not_found_error {
+	cat  <<-EOF
+	HTTP/1.1 404 NOT FOUND
+	Cache-Control: public
+	Connection: close
+	
+EOF
+}
+
+# ======================================================================
+# Send the provided content to the client
+# ======================================================================
+function server_send {
+	data=""
+	while IFS=  read -r line; do
+		data="$data\\n$line"
+	done
+	cat  <<-EOF
+	HTTP/1.1 200 OK
+	Cache-Control: public
+	Content-Type: $1
+	Connection: close
+	Content-Length: ${#data}
+
+	$(echo -e $data)
+	
+EOF
+}
+
+# ======================================================================
+# Send the provided content to the client without caching
+# ======================================================================
+function server_send_no_cache {
+	data=""
+	while IFS=  read -r line; do
+		data="$data\\n$line"
+	done
+	cat  <<-EOF
+	HTTP/1.1 200 OK
+	Cache-Control: no-store
+	Content-Type: $1
+	Connection: close
+	Content-Length: ${#data}
+
+	$(echo -e $data)
+	
+EOF
+}
+
+
+# ======================================================================
+# Send the requested content to the client
+# ======================================================================
+function server_send_binary {
+	local tempfile=$(mktemp)
+	cat >$tempfile <<-EOF
+HTTP/1.1 200 OK
+	Cache-Control: public, max-age=31536000
+	Connection: close
+	Content-Length: $(stat -c'%s' "$1")
+	Content-Type: $(file -b --mime-type "$1")
+	
+EOF
+	dd < $1 >>$tempfile 2>/dev/null
+	cat $tempfile
+	rm -f $tempfile 
+}
+
+# ======================================================================
+# server_fetches the requested content
+# ======================================================================
+function server_fetch {
+	read -r url
+	case $url in
+		/)
+			get_page_contents | server_send "text/html"
+			;;
+		/gameboard)
+			local tempfile=$(mktemp)
+			(
+				flock -x 200
+				if [ -f $GAMESTATEFILE ]; then
+					mv $GAMESTATEFILE $tempfile
+				else
+					server_send_not_found_error
+					return
+				fi								
+			) 200>$GAMESTATEFILELOCK
+			cat $tempfile | server_send_no_cache "text/plain"
+			rm -f $tempfile
+			;;			
+		*)
+			if [ -f ".$url" ]; then
+				server_send_binary .$url
+			else
+				server_send_not_found_error
+			fi
+			;;
+		esac
+}
+
+# ======================================================================
+# Reads an incoming HTTP request
+# ======================================================================
+function server_receive {
+	url=""
+	while IFS= read line; do
+		case $line in
+			[Gg][Ee][Tt]*)
+				url=$(echo $line | cut -d' ' -f2);;
+			[^A-Za-z]*)
+				;;
+			*)
+				break
+				;;
+		esac
+	done
+	echo "$url";
+}
+
+# ======================================================================
+# Server loop
+# ======================================================================
+function server_serve {
+	set -f
+	echo "Listening on http://localhost:$PORT"
+	while true ; do
+		socat TCP-LISTEN:$PORT,fork,reuseaddr EXEC:"$PROCESSCMD"
+	done
+}
+
+if [ "$2" = "process" ]; then
+	tmpfile=$(mktemp)
+	zcat $1 > $tmpfile
+	source $tmpfile
+	rm -f $tmpfile
+	server_receive | server_fetch
+elif [ "$2" = "serve" ]; then
+	PROCESSCMD="./lib/server \"$1\" process"
+	server_serve
+else
+	echo 1>&2 "Unknown request: 1=$1 2=$2"
+fi

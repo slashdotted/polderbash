@@ -1,0 +1,53 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+if [ $# -le 0 ]; then
+	echo 1>&2 "Please provide a level file to run"
+	echo 1>&2 "Usage: $0 levelfile"
+	exit 1
+fi
+if [ ! -f "$1" ]; then
+	echo 1>&2 "Cannot open level file $1"
+	exit 1
+fi
+
+function cleanup {
+	echo "Killing game (PID $PLAYPID)"
+	kill -9 -$(ps -o pgid= $PLAYPID | grep -o '[0-9]*') 1&2>/dev/null
+}
+
+tmplock=$(mktemp)
+(
+	flock -x -w 10 200 || exit 1
+) 200>$tmplock
+
+./lib/play "$(realpath $1)" &
+PLAYPID=$!
+echo "====================================================="
+echo "Welcome to PölderBash!"
+echo 
+echo "Type pol_help for a short help"
+echo "Type exit to quit"
+echo "====================================================="
+echo 
+sleep 4
+PATH=$PATH:$(pwd)/bin bash
+
+
+cleanup
+

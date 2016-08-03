@@ -1,0 +1,30 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+if [ ! -f /tmp/poelderpid ]; then
+	echo "Game is not running!"
+	exit 1
+fi
+MPID=$(cat /tmp/poelderpid)
+if [ ! -d /proc/$MPID ]; then
+	echo "Game is not running!"
+	exit 1
+fi
+echo "player_clockwise" > /tmp/poelderplayercmdtmp
+mv /tmp/poelderplayercmdtmp /tmp/poelderplayercmd
+while [ -f /tmp/poelderplayercmd ]; do sleep 0.1; done

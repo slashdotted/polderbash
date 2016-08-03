@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<level version="1">	
+	<label type="time">Tempo:</label>
+	<label type="score">Punteggio:</label>
+	<label type="hint">Domanda chiave (muovi il mouse sopra una porta per visualizzare):</label>
+	<tiles>
+			wwwwwwwwwwwwwww
+			wffwswwweffssfw
+			wffwswwwffffffw
+			wffwfwwwwwwwwcw
+			wfswfcffsswwwfw
+			wffwfwwwwfwfffw
+			wcwwfwwwwcwcwww
+			wfswfcffwfwfssw
+			wwcwfwsfcfwwwfw
+			wffwfwffwfcswcw
+			wffwfwwcwfwwwfw
+			wcwwfwfffffcfsw
+			wfswfcfswcwwwww
+			wsfcfwfswffsssw
+			wwwwwwwwwwwwwww
+	</tiles>
+	<player startrow="1" startcol="1" startdir="1" startpersona="5">
+		<hint>Questo sei tu!</hint>
+	</player>
+	<cells>
+		<cell row="1" col="8">
+			<hint>Questa è l'uscita!</hint>
+		</cell>
+		<cell row="6" col="1">
+			<hint>Per aprire questa porta crea un file chiamato example.txt nella directory /tmp</hint>
+			<test>test -f /tmp/example.txt</test>
+		</cell>
+		<cell row="8" col="2">
+			<hint>Per aprire questa porta deiv avere un file chiamato mykey.txt nella directory /tmp con i seguenti permessi:
+				il proprietario deve poter leggere, scrivere e eseguire il file; il gruppo deve poter solamente leggere il file;
+				gli altri non devono avere nessun accesso al file.
+			</hint>
+			<test>test -f /tmp/mykey.txt -a $(stat -c "%a" /tmp/mykey.txt) -eq 740</test>
+		</cell>
+		<cell row="11" col="1">
+			<hint>Quale comando utilizziamo per creare una nuova directory? &lt;br/&gt;
+				A) makedir &lt;br/&gt;
+				B) mkdir &lt;br/&gt;
+				C) createdir
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>
+	</cells>
+</level>

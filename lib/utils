@@ -1,0 +1,579 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+# ======================================================================
+# Load configuration
+# ======================================================================
+source ./lib/config
+time_label="Time:"
+score_label="Score:"
+hint_label="Key question (move mouse over a door to show corresponding question)"
+
+# ======================================================================
+# Get the hint contents
+# ======================================================================
+function get_hint {
+	if [ $1 -lt 0 ]; then
+		echo $player_hint
+	else
+		echo $(eval "echo \$cell_hint_${1}_${2}")
+	fi
+}
+
+# ======================================================================
+# Construct level from plan
+# ======================================================================
+function make_level {
+	local cells=$(echo $1 | sed -e "s/[[:blank:]]//g")
+	local rows=15
+	local columns=15
+	local index=1
+	for ((i=0;i<rows;i++)) do
+		for ((j=0;j<columns;j++)) do
+			local value=$(echo $cells | cut -c$index)
+			ec="cell_type_${i}_${j}=\"$value\""
+			eval "$ec"
+			let index=index+1
+		done
+	done
+}
+
+# ======================================================================
+# Page contents
+# ======================================================================
+function get_page_contents {
+cat <<-EOF
+<html>
+	<head>
+	<title>PoelderBash</title>
+	<!--<meta http-equiv="refresh" content="5">-->
+	<script>
+		var xmlhttp = new XMLHttpRequest()
+		var url = "/gameboard"
+		var player_say = ""
+		var old_x = -1
+		var old_y = -1
+		var skipsound = true
+		var skipmovesound = false
+
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4) {
+				if (xmlhttp.status == 200) {
+					updateGameboard(xmlhttp.responseText)
+				} else {
+					
+				}
+				setTimeout(function() { requestUpdate(); }, 1000)
+			}
+		}
+
+		function requestUpdate() {
+			xmlhttp.open("GET", url, true)
+			xmlhttp.send()
+		}
+
+		function endsWith(str, suffix) {
+			return str.indexOf(suffix, str.length - suffix.length) !== -1;
+		}
+
+		function updateGameboard(data) {
+			if (data === "") return
+			var tiles=data.split("#")
+			var index=8
+			var table = document.getElementById('board')
+			var columns = table.rows[0].cells.length
+			for(var i=0; i<table.rows.length; i++){
+				for(var j=0; j<columns; j++) {
+					var newValue = "tiles/"+tiles[index]+".png"
+					var oldValue = table.rows[i].cells[j].firstChild.src
+					if (!endsWith(oldValue,newValue)) {
+						if (endsWith(oldValue, "s.png")) {
+							playCoin()
+							skipmovesound = true
+						}
+						if (endsWith(oldValue, "c.png")) {
+							playDoor()
+							skipmovesound = true
+						}
+						table.rows[i].cells[j].firstChild.src = newValue
+					}
+				index++
+				}
+			}
+
+			var player_x = parseInt(tiles[0])
+			var player_y = parseInt(tiles[1])
+			var player_d = parseInt(tiles[2])
+			var player_p = parseInt(tiles[3])
+			var player_t = parseInt(tiles[4])
+			var player_s = parseInt(tiles[5])
+			var gamestate = parseInt(tiles[6])
+			player_say = tiles[7]
+			document.getElementById('time').innerHTML = formatTimestamp(player_t)
+			document.getElementById('score').innerHTML = player_s
+			updatePlayer(player_x, player_y, player_d, player_p)
+			if (player_say !== "") {
+				if (document.getElementById('saybubble').style.visibility === "hidden") {
+					playSay()
+				}
+				showSay()
+			} else {
+				hideSay()
+			}
+			skipsound=false
+			skipmovesound=false
+		}
+		
+		function formatTimestamp(ts) {
+			if (ts < 0)
+				return ""
+			ts = ((ts % (3600*24)) + 3600*24) % (3600*24)
+			var hours = Math.floor(ts / 3600)
+			var minutes = Math.floor((ts - (hours*3600)) / 60)
+			var seconds = ts - hours * 3600 - minutes * 60
+			var hh = ""+hours
+			var mm = ""+minutes
+			var ss = ""+seconds
+			if (hours < 10) {
+				hh = "0"+hh
+			}
+			if (minutes < 10) {
+				mm = "0"+mm
+			}
+			if (seconds < 10) {
+				ss = "0"+ss
+			}
+			return hh+":"+mm+":"+ss
+		}
+		
+		function showHint(hinttext) {
+			document.getElementById('hint').innerHTML = hinttext
+		}
+		
+		function hideHint() {
+			document.getElementById('hint').innerHTML = ""
+		}
+
+		function updatePlayer(r, c, d, p) {
+			var table = document.getElementById('board')
+			var columns = table.rows[0].cells.length
+			var cell = table.rows[r].cells[c]
+			var rect = cell.getBoundingClientRect()
+			var currentPersona = document.getElementById('player').src
+			if (!endsWith(currentPersona, p+".png")) {
+				playPersona()
+			}
+			if (old_x >= 0 && (r != old_y || c != old_x)) {
+				playStep()
+				if (endsWith(cell.firstChild.src, "e.png")) {
+					playEnd()
+				}
+			}
+			old_x = c
+			old_y = r
+			document.getElementById('player').src = "personas/persona_"+p+".png"
+			var currentTransform = document.getElementById('player').style.transform
+			switch (d) {
+				case 0:
+					if (currentTransform !== "rotate(90deg)") {
+						playTurn()
+					}
+					document.getElementById('player').style.transform = "rotate(90deg)"
+					break;
+				case 1:
+					if (currentTransform !== "rotateY(180deg)") {
+						playTurn()
+					}
+					document.getElementById('player').style.transform = "rotateY(180deg)"
+					break;
+				case 2:
+					if (currentTransform !== "rotate(270deg)") {
+						playTurn()
+					}				
+					document.getElementById('player').style.transform = "rotate(270deg)"
+					break;
+				case 3:
+					if (currentTransform !== "rotate(0deg)") {
+						playTurn()
+					}								
+					document.getElementById('player').style.transform = "rotate(0deg)"
+					break;
+			}
+			document.getElementById('player').style.visibility = "visible"
+			document.getElementById('player').style.top = rect.top + window.pageYOffset +"px"
+			document.getElementById('player').style.left = rect.left + window.pageXOffset + "px"
+			document.getElementById('player').style.width = rect.width +"px"
+			document.getElementById('player').style.height = rect.height + "px" 
+		}
+		
+		function showSay() {
+			var rect = document.getElementById('player').getBoundingClientRect();
+			document.getElementById('saybubble').style.top = (rect.top - 25 ) + window.pageYOffset + "px"
+			document.getElementById('saybubble').style.left = (rect.right - 5 ) + window.pageXOffset + "px" 
+			document.getElementById('saybubble').style.visibility = "visible"
+		}
+		
+		function hideSay() {
+			document.getElementById('saybubble').style.visibility = "hidden"
+		}
+		
+		function playCoin() {
+			if (!skipsound)
+				document.getElementById('coin').play()
+		}
+		
+		function playSay() {
+			if (!skipsound)
+				document.getElementById('saysound').play()
+		}
+		
+		function playDoor() {
+			if (!skipsound)
+				document.getElementById('door').play()
+		} 
+		
+		function playPersona() {
+			if (!skipsound)
+				document.getElementById('persona').play()
+		}
+		
+		function playStep() {
+			if (!skipmovesound && !skipsound)
+				document.getElementById('step').play()
+		}
+		
+		function playTurn() {
+			if (!skipsound)
+				document.getElementById('turn').play()
+		}
+		
+		function playEnd() {
+			if (!skipsound)
+				document.getElementById('end').play()
+		}
+
+		setTimeout(function() { requestUpdate(); }, 500)
+	</script>
+	</head>
+	<body>
+		<audio id="coin" src="sounds/coin.mp3"></audio>
+		<audio id="door" src="sounds/door.mp3"></audio>
+		<audio id="saysound" src="sounds/say.mp3"></audio>
+		<audio id="persona" src="sounds/persona.mp3"></audio>
+		<audio id="step" src="sounds/step.mp3"></audio>
+		<audio id="turn" src="sounds/turn.mp3"></audio>
+		<audio id="end" src="sounds/end.mp3"></audio>
+		<div style="text-align:right; margin-right: 20px; margin-bottom: -100px;"><img src="images/logo.png" alt="PoelderBash"/></div>
+		<img id="saybubble" style="width: 32px; height: 32px; position: absolute;  visibility: hidden;" onmouseout="hideHint();" onmouseover='showHint(player_say);' src="images/say.png"/>
+		<img id="player" style="width: 32px; height: 32px; position: absolute; visibility: hidden;" onmouseout="hideHint();" onmouseover='showHint("$(get_hint -1 -1)");' src="personas/persona_0.png"/>
+		<div style="background-color: #c0c0c0; border: 5px solid #000000; margin-top: 20px; margin-left: auto; margin-right: auto; padding: 5px;">
+			<table style="border: 5px solid #999999; width: 100%; text-align: center;" >
+			<tr><td style="width: 550px">
+				<table id="board">
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 0 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 1 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 2 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 3 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 4 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 5 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 6 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 7 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 8 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 9 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 10 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 11 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 12 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 13 14)");'/></td>
+					</tr>
+					<tr>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 0)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 1)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 2)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 3)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 4)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 5)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 6)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 7)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 8)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 9)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 10)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 11)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 12)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 13)");'/></td>
+						<td><img style='width: 32px; height: 32px;' src='tiles/n.png' onmouseout="hideHint();" onmouseover='showHint("$(get_hint 14 14)");'/></td>
+					</tr>
+				</table>
+			</td><td style="text-align: center; padding-top: 60px;" >
+					<h1>$(echo $time_label) <span id="time"></span> - $(echo $score_label) 
+					<span id="score">0</span></h1>
+					<br/><br/>
+					<h3 style="text-align: center">$(echo $hint_label)</h3>
+					<p id="hint" style="margin-left: 10px; margin-right: 10px; height: 200px; padding: 5px; font-family: 'monospace'; border: 3px solid #909090; background-color: #000000; color: #00FF00">
+					</p>
+			<div style="position: relative; margin-top: 35px; text-align: center; font-size: 70%;">version 1.0 &copy;2016 Amos Brocco (amos.brocco@supsi.ch) - Code released under the GNU/GPLv3 license; 
+		<br/>Except where otherwise noted, artwork is licensed under a Creative Commons Attribution 4.0 International license. 
+		<br/>Tiles made by Crawl and later Crawl Stone Soup released as Public Domain.</div>
+		<div style="text-align: center;  font-size: 60%;"><a  href="#" onclick="location.reload();"><small>Something is missing? Click here to reload page</small></a></div>
+			
+			</td>
+			</tr>
+			</table>
+		</div>
+		
+	</body>
+</html>
+EOF
+}
+
+# ======================================================================
+# Return the level
+# ======================================================================
+function get_level {
+	lvl="${player_start_y:-1}#${player_start_x:-1}#${player_start_d:-1}#${player_start_p:0}#0#0#0#"
+	rows=15
+	columns=15
+	for ((i=0;i<rows;i++)) do
+		for ((j=0;j<columns;j++)) do
+			lvl="$lvl#\${cell_type_${i}_${j}:-n}"
+		done
+	done
+	eval "echo $lvl"
+}

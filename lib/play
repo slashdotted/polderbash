@@ -1,0 +1,142 @@
+#!/bin/bash
+# 
+# This file is part of PoelderBash
+# Copyright (c) 2016 Amos Brocco.
+# 
+# This program is free software: you can redistribute it and/or modify  
+# it under the terms of the GNU General Public License as published by  
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+LEVELARG=$(realpath $1)
+cd $( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/..
+BACKSERVERPID=0
+
+# ======================================================================
+# Cleanup hook for SIGINT
+# ======================================================================
+function cleanup {
+	echo "Killing server (PID $BACKSERVERPID)"
+	kill -9 -$(ps -o pgid= $BACKSERVERPID | grep -o '[0-9]*') 1&2>/dev/null
+	gameboard_destroy
+	rm -f $PIDFILE
+	exit 0
+}
+
+# ======================================================================
+# Update game state file (read by the server)
+# ======================================================================
+function update_game_state {
+	local tmpfile=$(mktemp)
+	gameboard_get_serialized > $tmpfile
+	(
+		flock -x 200
+		mv $tmpfile $GAMESTATEFILE 2>/dev/null
+	) 200>$GAMESTATEFILELOCK
+	rm -f $tmpfile
+}
+
+# ======================================================================
+# Game loop
+# ======================================================================
+function game_loop {
+	for ((;;)) do
+		update_game_state
+		sleep 0.5
+		player_command
+		echo 1>&2 -en "\033[2K"
+		echo 1>&2 -en "\rPlay time: $play_time"
+	done
+}
+
+# ======================================================================
+# Intercept user commands
+# ======================================================================
+function player_command {
+	if [ -f $PLAYERCMDFILE ]; then
+		cmd=$(cat $PLAYERCMDFILE)
+		rm -f $PLAYERCMDFILE
+		case $cmd in
+			player_forward) player_forward;;
+			player_clockwise) player_clockwise;;
+			player_anticlockwise) player_anticlockwise;;
+			player_look) player_look;;
+			player_info) player_info;;
+			player_say) player_say;;
+			player_update_persona) player_update_persona;;
+			player_save_game) player_save_game;;
+			player_load_game) player_load_game;;
+		esac
+		sync
+	fi
+}
+
+# ======================================================================
+# Main procedure
+# ======================================================================
+function main {
+	echo $THISPID > $PIDFILE
+	gameboard_init
+	gameboard_read_serialized "$(get_level)"
+	game_loop
+	cleanup
+}
+
+# ======================================================================
+# Load configuration
+# ======================================================================
+source ./lib/config
+
+# ======================================================================
+# Parse command line arguments
+# ======================================================================
+if [ $# -le 0 ]; then
+	echo 1>&2 "Please provide a level file to run"
+	echo 1>&2 "Usage: $0 levelfile"
+	exit 1
+fi
+
+# ======================================================================
+# Load level
+# ======================================================================
+if [ ! -f "$LEVELARG" ]; then
+	echo 1>&2 "Cannot open level file $1"
+	exit 1
+fi
+tmplevel=$(mktemp)
+zcat $LEVELARG > $tmplevel
+source $tmplevel
+rm -f $tmplevel
+
+# ======================================================================
+# Load support files
+# ======================================================================
+source ./lib/gameboard
+source ./lib/utils
+
+make_level "$level_plan"
+
+# ======================================================================
+# Signal hooks
+# ======================================================================
+trap "cleanup" SIGINT
+
+rm -f $PLAYERCMDFILE
+./lib/server "$LEVELARG" serve &
+BACKSERVERPID=$!
+
+main 2>/dev/null
+
+exit 0
+
+
+
+
