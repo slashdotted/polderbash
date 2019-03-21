@@ -1,7 +1,7 @@
 #!/bin/bash
 # 
 # This file is part of PoelderBash
-# Copyright (c) 2016 Amos Brocco.
+# Copyright (c) 2016-2019 Amos Brocco.
 # 
 # This program is free software: you can redistribute it and/or modify  
 # it under the terms of the GNU General Public License as published by  
@@ -64,10 +64,18 @@ function compile_level {
 			local hint=$(xpath -e "//cell[@row=$i and @col=$j]/hint/text()" $1 2>/dev/null | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g; s/\$/\&#36;/g; s/$/<br>/g; s/&/\&amp;/g;' | tr '\n' ' ' | tr -s '\t' '\t' | tr -s '\t' ' ')
 			if [ -n "$hint" ]; then
 				echo "cell_hint_${i}_${j}='$hint'"		
-				local test=$(xpath -e "//cell[@row=$i and @col=$j]/test/text()" $1 2>/dev/null | tr '\n' ' ' | sed -e "s/\"/\\\\\"/g" | sed -e "s/\\$/\\\\$/g" | sed -e "s/&amp;/\&/g")
+				local test=$(xpath -e "//cell[@row=$i and @col=$j]/test/text()" $1 2>/dev/null | tr '\n' ' ' | sed -e "s/&amp;/\&/g")
 				if [ -n "$test" ]; then
 					echo "cell_test_${i}_${j}='$test'"
 				fi
+				local init=$(xpath -e "//cell[@row=$i and @col=$j]/init/text()" $1 2>/dev/null | tr '\n' ' ' | sed -e "s/&amp;/\&/g")
+				if [ -n "$init" ]; then
+					echo "cell_init_${i}_${j}='$init'"
+				fi	
+				local init=$(xpath -e "//cell[@row=$i and @col=$j]/cleanup/text()" $1 2>/dev/null | tr '\n' ' ' | sed -e "s/&amp;/\&/g")
+				if [ -n "$cleanup" ]; then
+					echo "cell_cleanup_${i}_${j}='$cleanup'"
+				fi	
 			fi
 		done
 	done
