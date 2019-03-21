@@ -28,6 +28,9 @@ hint_label="Key question (move mouse over a door to show corresponding question)
 # Get the hint contents
 # ======================================================================
 function get_hint {
+	if [ "$POL_DESIGN_MODE" == "1" ]; then
+		echo -n "row=&amp;quot;${1}&amp;quot; col=&amp;quot;${2}&amp;quot;<br>"
+	fi
 	if [ $1 -lt 0 ]; then
 		echo $player_hint
 	else
@@ -61,6 +64,10 @@ cat <<-EOF
 <html>
 	<head>
 	<title>PoelderBash</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+	<meta http-equiv="Pragma" content="no-cache" />
+	<meta http-equiv="Expires" content="0" />
 	<!--<meta http-equiv="refresh" content="5">-->
 	<script>
 		var xmlhttp = new XMLHttpRequest()

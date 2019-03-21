@@ -20,7 +20,7 @@
 			wsfcfwfswffsssw
 			wwwwwwwwwwwwwww
 	</tiles>
-	<player startrow="1" startcol="1" startdir="1" startpersona="5">
+	<player startrow="1" startcol="1" startdir="1" startpersona="1">
 		<hint>Questo sei tu!</hint>
 	</player>
 	<cells>
@@ -32,19 +32,115 @@
 			<test>test -f /tmp/example.txt</test>
 		</cell>
 		<cell row="8" col="2">
-			<hint>Per aprire questa porta deiv avere un file chiamato mykey.txt nella directory /tmp con i seguenti permessi:
+			<hint>Per aprire questa porta devi avere un file chiamato mykey.txt nella directory /tmp con i seguenti permessi:
 				il proprietario deve poter leggere, scrivere e eseguire il file; il gruppo deve poter solamente leggere il file;
 				gli altri non devono avere nessun accesso al file.
 			</hint>
 			<test>test -f /tmp/mykey.txt -a $(stat -c "%a" /tmp/mykey.txt) -eq 740</test>
 		</cell>
 		<cell row="11" col="1">
-			<hint>Quale comando utilizziamo per creare una nuova directory? &lt;br/&gt;
-				A) makedir &lt;br/&gt;
-				B) mkdir &lt;br/&gt;
+			<hint>Quale comando utilizziamo per creare una nuova directory?
+				A) makedir
+				B) mkdir
 				C) createdir
 			</hint>
 			<test>test "$(get_player_say)" = "B"</test>
 		</cell>
+		<cell row="13" col="3">
+			<hint>Come viene chiuso il costrutto "case"?
+				A) }
+				B) end case
+				C) esac
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>	
+		<cell row="4" col="5">
+			<hint>Come viene chiuso il costrutto "if"?
+				A) endif
+				B) fi
+				C) end
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>
+		<cell row="7" col="5">
+			<hint>Nei condizionali, quale comando si cela dietro a [ ] ?
+				A) test
+				B) grep
+				C) if
+			</hint>
+			<test>test "$(get_player_say)" = "A"</test>
+		</cell>	
+		<cell row="12" col="5">
+			<hint>Quale variabile contiene il numero degli argomenti passati a uno script ?
+				A) $#
+				B) $@
+				C) $!
+			</hint>
+			<test>test "$(get_player_say)" = "A"</test>
+		</cell>	
+		<cell row="10" col="7">
+			<hint>Per aprire questa porta devi avere un file chiamato mykey.txt nella directory /tmp con i seguenti permessi:
+				il proprietario deve poter leggere, scrivere ma non eseguire il file; il gruppo deve poter solamente leggere il file;
+				gli altri non devono avere nessun accesso al file.
+			</hint>
+			<test>test -f /tmp/mykey.txt -a $(stat -c "%a" /tmp/mykey.txt) -eq 640</test>
+		</cell>
+		<cell row="8" col="8">
+			<hint>Per aprire questa porta devi avere un file chiamato mykey.txt nella directory /tmp con i seguenti permessi:
+				il proprietario deve poter leggere, scrivere e eseguire il file; il gruppo deve poter solamente scrivere il file;
+				gli altri non devono avere nessun accesso al file.
+			</hint>
+			<test>test -f /tmp/mykey.txt -a $(stat -c "%a" /tmp/mykey.txt) -eq 720</test>
+		</cell>
+		<cell row="6" col="9">
+			<hint>Come dichiaro una variabile A con valore uguale a 5 ?
+				A) A=5
+				B) int A=5
+				C) A = 5
+			</hint>
+			<test>test "$(get_player_say)" = "A"</test>
+		</cell>	
+		<cell row="12" col="9">
+			<hint>Quale variabile contiene il valore di ritorno dell'ultimo comando?
+				A) $#
+				B) $!
+				C) $?
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>		
+		<cell row="9" col="10">
+			<hint>Crea uno script chiamato myscript.sh nella cartella /tmp che ritorna 0 se il primo parametro passato è maggiore o uguale a zero, altrimenti ritorna 1
+			</hint>
+			<test>/tmp/myscript.sh 76 &amp;&amp; /tmp/myscript.sh 0  &amp;&amp; ! /tmp/myscript.sh -1</test>
+		</cell>	
+		<cell row="6" col="11">
+			<hint>Quale variabile contiene il tutti gli argomenti?
+				A) $#
+				B) $*
+				C) $@
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>	
+		<cell row="11" col="11">
+			<hint>Con quale carattere inizia lo shabang?
+				A) $
+				B) !
+				C) #
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>	
+		<cell row="9" col="13">
+			<hint>Crea uno script chiamato myscript.sh nella cartella /tmp che ritorna 0 se viene passato almeno un argomento, altrimenti ritorna 1.
+			</hint>
+			<test>/tmp/myscript.sh 76 &amp;&amp; /tmp/myscript.sh 0 4 4 &amp;&amp; ! /tmp/myscript.sh</test>
+		</cell>	
+		<cell row="3" col="13">
+			<hint>Quale comando permette di leggere l'input dell'utente?
+				A) input
+				B) read
+				C) readline
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>				
 	</cells>
 </level>

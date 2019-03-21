@@ -164,7 +164,7 @@ function server_serve {
 	set -f
 	echo "Listening on http://localhost:$PORT"
 	while true ; do
-		socat TCP-LISTEN:$PORT,fork,reuseaddr EXEC:"$PROCESSCMD"
+		socat TCP-LISTEN:$PORT,fork,reuseaddr EXEC:"$PROCESSCMD" 2>/dev/null
 	done
 }
 
