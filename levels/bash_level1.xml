@@ -2,7 +2,7 @@
 <level version="1">	
 	<label type="time">Tempo:</label>
 	<label type="score">Punteggio:</label>
-	<label type="hint">Domanda chiave (muovi il mouse sopra una porta per visualizzare):</label>
+	<label type="hint">Domanda chiave (clicca la porta per visualizzare):</label>
 	<tiles>
 			wwwwwwwwwwwwwww
 			wffwswwweffssfw
