@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<level version="1">	
+	<label type="time">Tempo:</label>
+	<label type="score">Punteggio:</label>
+	<label type="hint">Domanda chiave (clicca la porta per visualizzare):</label>
+	<tiles>
+			wwwwwwwwwwwwwww
+			wffwswwweffssfw
+			wffwswwwffffffw
+			wffwfwwwwwwwwcw
+			wfswfcffsswwwfw
+			wffwfwwwwfwfffw
+			wcwwfwwwwcwcwww
+			wfswfcffwfwfssw
+			wwcwfwsfcfwwwfw
+			wffwfwffwfcswcw
+			wffwfwwcwfwwwfw
+			wcwwfwfffffcfsw
+			wfswfcfswcwwwww
+			wsfcfwfswffsssw
+			wwwwwwwwwwwwwww
+	</tiles>
+	<player startrow="1" startcol="1" startdir="1" startpersona="1">
+		<hint>Questo sei tu</hint>
+	</player>
+	<cells>
+		<cell row="1" col="8">
+			<hint>Questa porta è aperta</hint>
+		</cell>
+		<cell row="6" col="1">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>
+		<cell row="8" col="2">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>
+		<cell row="11" col="1">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>
+		<cell row="13" col="3">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="4" col="5">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>
+		<cell row="7" col="5">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="12" col="5">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="10" col="7">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>
+		<cell row="8" col="8">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>
+		<cell row="6" col="9">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="12" col="9">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>		
+		<cell row="9" col="10">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="6" col="11">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="11" col="11">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="9" col="13">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>	
+		<cell row="3" col="13">
+			<hint>Questa porta è aperta</hint>
+			<test>true</test>
+		</cell>				
+	</cells>
+</level>
