@@ -52,16 +52,16 @@ EOF
 function server_send {
 	data=""
 	while IFS=  read -r line; do
-		data="$data\\n$line"
+		data="$data\n$line"
 	done
 	cat  <<-EOF
 	HTTP/1.1 200 OK
 	Cache-Control: public
 	Content-Type: $1
 	Connection: close
-	Content-Length: ${#data}
+	Content-Length: $(echo -e -n "$data" | wc -c)
 
-	$(echo -e $data)
+	$(echo -e -n "$data")
 	
 EOF
 }
@@ -72,16 +72,16 @@ EOF
 function server_send_no_cache {
 	data=""
 	while IFS=  read -r line; do
-		data="$data\\n$line"
+		data="$data\n$line"
 	done
 	cat  <<-EOF
 	HTTP/1.1 200 OK
 	Cache-Control: no-store
 	Content-Type: $1
 	Connection: close
-	Content-Length: ${#data}
+	Content-Length: $(echo -e -n "$data" | wc -c)
 
-	$(echo -e $data)
+	$(echo -e -n "$data")
 	
 EOF
 }
