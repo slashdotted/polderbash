@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<level version="1">	
+	<label type="time">Tempo:</label>
+	<label type="score">Punteggio:</label>
+	<label type="hint">Domanda chiave (clicca la porta per visualizzare):</label>
+	<tiles>
+			wwwwwwwwwwwwwww
+			wffwswwweffssfw
+			wffwswwwffffffw
+			wffwfwwwwwwwwcw
+			wfswfcffsswwwfw
+			wffwfwwwwfwfffw
+			wcwwfwwwwcwcwww
+			wfswfcffwfwfssw
+			wwcwfwsfcfwwwfw
+			wffwfwffwfcswcw
+			wffwfwwcwfwwwfw
+			wcwwfwfffffcfsw
+			wfswfcfswcwwwww
+			wsfcfwfswffsssw
+			wwwwwwwwwwwwwww
+	</tiles>
+	<player startrow="1" startcol="1" startdir="1" startpersona="1">
+		<hint>Questo sei tu!</hint>
+	</player>
+	<cells>
+		<cell row="1" col="8">
+			<hint>Questa è l'uscita!</hint>
+		</cell>
+		<cell row="6" col="1">
+			<hint>Per aprire questa porta crea un file chiamato example.txt nella directory /tmp</hint>
+			<test>test -f /tmp/example.txt</test>
+		</cell>
+		<cell row="8" col="2">
+			<hint>Per aprire questa porta crea un file chiamato mykey.txt nella directory /tmp
+			</hint>
+			<test>test -f /tmp/mykey.txt</test>
+		</cell>
+		<cell row="11" col="1">
+			<hint>Quale comando utilizziamo per creare una nuova directory?
+				A) makedir
+				B) mkdir
+				C) createdir
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>
+		<cell row="13" col="3">
+			<hint>Come possiamo visualizzare il percorso corrente?
+				A) cd
+				B) dir
+				C) pwd
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>	
+		<cell row="4" col="5">
+			<hint>Quale parametro del comando rm ci permette di eliminare le directory?
+				A) -d
+				B) -r
+				C) --dir
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>
+		<cell row="7" col="5">
+			<hint>Nei percorsi assoluti, qual è il primo carattere?
+				A) /
+				B) ~
+				C) :
+			</hint>
+			<test>test "$(get_player_say)" = "A"</test>
+		</cell>	
+		<cell row="12" col="5">
+			<hint>Quale comando mi permette di spostarmi nella mia directory personale (home directory) ?
+				A) cd
+				B) cd /
+				C) cd Home
+			</hint>
+			<test>test "$(get_player_say)" = "A"</test>
+		</cell>	
+		<cell row="10" col="7">
+			<hint>Per aprire questa porta devi creare un file chiamato mykey.txt nella tua directory personale (home)
+			</hint>
+			<test>test -f ~/mykey.txt</test>
+		</cell>
+		<cell row="8" col="8">
+			<hint>Per aprire questa porta devi creare una directory Documenti nella directory /tmp con dentro un file chiamato appunti.txt
+			</hint>
+			<test>test -d /tmp/Documenti -a -f /tmp/Documenti/appunti.txt</test>
+		</cell>
+		<cell row="6" col="9">
+			<hint>Come visualizzo la dimensione di un file chiamato dati.dat ?
+				A) stat -c%s dati.dat
+				B) ls -c%s dati.dat
+				C) size dati.dat
+			</hint>
+			<test>test "$(get_player_say)" = "A"</test>
+		</cell>	
+		<cell row="12" col="9">
+			<hint>Il percorso ritornato dal comando pwd è
+				A) Relativo
+				B) Abbreviato
+				C) Assoluto
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>		
+		<cell row="9" col="10">
+			<hint>Quale espressione del globbing mi permette di elencare tutti i file con un'estensione di 3 caratteri?
+				A) ls *.[?][?][?]
+				B) ls *.???
+				C) ls .???
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>	
+		<cell row="6" col="11">
+			<hint>Quale comando mi permette di cancellare le directory vuote?
+				A) rm
+				B) kill
+				C) rmdir
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>	
+		<cell row="11" col="11">
+			<hint>Con quale carattere identifico la directory home?
+				A) $
+				B) /
+				C) ~
+			</hint>
+			<test>test "$(get_player_say)" = "C"</test>
+		</cell>	
+		<cell row="9" col="13">
+			<hint>Se mi trovo in una directory vuota e eseguo il comando ls -al, quale valore viene visualizzato nella seconda colonna in corrispondenza di . ?
+				A) 1
+				B) 2
+				C) 3
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>	
+		<cell row="3" col="13">
+			<hint>Quale comando permette di vedere il contenuto di un file?
+				A) print
+				B) cat
+				C) show
+			</hint>
+			<test>test "$(get_player_say)" = "B"</test>
+		</cell>				
+	</cells>
+</level>
